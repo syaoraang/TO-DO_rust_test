@@ -7,7 +7,7 @@
 mod m_listing;
 mod m_logger;
 
-use log::{error, info, warn, debug};
+//use log::{error, info, warn, debug};
 use log4rs;
 use std::borrow::Cow;
 

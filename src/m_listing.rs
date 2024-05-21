@@ -1,7 +1,6 @@
-use std::fmt::{Display, format, Formatter};
+use std::fmt::{Display, Formatter};
 use std::usize;
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
 
 #[derive(Default)]
 #[derive(Serialize, Deserialize)]
