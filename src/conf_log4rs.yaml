@@ -1,0 +1,23 @@
+# Scan this file for changes every 30 seconds
+refresh_rate: 30 seconds
+
+appenders:
+  # An appender named "stdout" that writes to stdout
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{d} - {M}[{P}-{I}]: {m}{n}"
+
+  # An appender named "requests" that writes to a file with a custom pattern encoder
+  regular_trace:
+    kind: file
+    path: "log/requests.log"
+    encoder:
+      pattern: "{d} - {M}[{P}-{I}]: {m}{n}"
+
+# Set the default logging level to "warn" and attach the "stdout" appender to the root
+root:
+  level: trace
+  appenders:
+    - stdout
+    - regular_trace
