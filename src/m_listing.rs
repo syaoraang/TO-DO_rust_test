@@ -1,6 +1,8 @@
-use std::fmt::{Display, Formatter};
-use std::usize;
+use std::fmt::{Display, Error, Formatter};
+use std::{io, usize};
 use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader, Write};
+use std::fs::File;
 
 #[derive(Default)]
 #[derive(Serialize, Deserialize)]
@@ -103,4 +105,32 @@ impl Listing {
         return serde_json::to_string(self).expect("FATAL");
     }
 
+    pub fn from_json(&self, ser_string:String) -> Result<ListItem, std::error>
+    {
+        return serde_json::from_str(ser_string.unwrap().as_str())?
+    }
+    fn load_json(&mut self, file_path:&str) -> Result<bool, io::Error>
+    {
+        let file = File::open(file_path)?;
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let m_res = match line{
+                Err(_) => continue,
+                Ok(t ) => self.from_json(t.unwrap())
+            };
+            let m_other = match m_res{
+                Err(_) => continue,
+                Ok(t ) =>  self.add(t.unwrap())
+            };
+        }
+    }
+
+    fn write_json(&mut self, file_path:&str, list:Vec<String>) -> Result<bool, io::Error>
+    {
+        let mut file = File::open(file_path).unwrap_or(File::create(file_path)?);
+        for item in list.iter() {
+            write!(file, "{}", item)?;
+        }
+        Ok(true)
+    }
 }

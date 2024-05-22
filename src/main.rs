@@ -9,17 +9,6 @@ mod m_logger;
 
 //use log::{error, info, warn, debug};
 use log4rs;
-use std::borrow::Cow;
-
-struct Items<'a, X> where [X]: ToOwned<Owned = Vec<X>> {
-    values: Cow<'a, [X]>,
-}
-
-impl<'a, X: Clone + 'a> Items<'a, X> where [X]: ToOwned<Owned = Vec<X>> {
-    fn new(v: Cow<'a, [X]>) -> Self {
-        Items { values: v }
-    }
-}
 fn main() {
     // Using configuration files
     // log4rs::init_file("src/conf_log4rs.yaml", Default::default()).unwrap();
