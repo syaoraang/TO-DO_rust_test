@@ -1,25 +1,21 @@
+mod list_type;
+
+use std::string::String;
+use list_type::ListType;
 use std::fmt::{Display, Error, Formatter};
 use std::{io, usize};
+use std::cmp::PartialEq;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::fs::File;
+//use serde_json::Value::String;
 
-#[derive(Default)]
-#[derive(Serialize, Deserialize)]
-enum ListType
+struct Group(String);
+
+impl Default for Group
 {
-    #[default]
-    Todo,
-    Done
-}
-impl Display for ListType
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let m_string:String = match self {
-            ListType::Todo => String::from("TODO"),
-            ListType::Done => String::from("DONE")
-        };
-        write!(f, "{}", m_string)
+    fn default() -> Self {
+        Group(String::from("Default"))
     }
 }
 
@@ -29,9 +25,22 @@ struct ListItem
 {
     text: String,
     id: u8,
-    status: ListType
+    status: ListType,
+    group: String
 }
 
+impl PartialEq for ListType {
+    fn eq(&self, other: &Self) -> bool {
+        self.eq(other)
+    }
+}
+
+impl ListItem {
+    fn is_done(&self) -> bool
+    {
+        self.status == ListType::Done
+    }
+}
 #[derive(Default)]
 #[derive(Serialize, Deserialize)]
 pub struct Listing
@@ -46,6 +55,7 @@ impl Listing {
     {
         return Listing::default();
     }
+
     fn add(&mut self, item:ListItem)
     {
         self.internal_list.push(item);
@@ -53,10 +63,18 @@ impl Listing {
 
     pub fn emplace(&mut self, text:String)
     {
-        let new_item:ListItem = ListItem {text, id:self.last_id as u8 +1, status:ListType::Todo};
+        let new_item:ListItem = ListItem {text, id:self.last_id as u8 +1, status:ListType::Todo, group: String::from("Default")};
         self.internal_list.push(new_item);
         self.last_id+=1;
     }
+
+    pub fn emplace_group(&mut self, text:String, group: String)
+    {
+        let new_item:ListItem = ListItem {text, id:self.last_id as u8 +1, status:ListType::Todo, group };
+        self.internal_list.push(new_item);
+        self.last_id+=1;
+    }
+
     fn find_item(&self, id:u8) -> Option<&ListItem>
     {
         self.internal_list.iter().find(| &x| x.id == id)
@@ -71,15 +89,14 @@ impl Listing {
     {
         self.internal_list.iter().position(|x| x.id==id)
     }
-    pub fn remove(&mut self, id:u8)
+
+    pub fn remove(&mut self, id:u8) -> bool
     {
-        let tmp_pos = self.find_position(id);
-        if ( tmp_pos.is_some())
-        {
-            self.internal_list.remove(tmp_pos.unwrap());
-        }
-        else {
-            println!("Can't find the id: {}", id);
+        match self.find_position(id){
+            Some(t) => match self.internal_list.remove(t) {
+                t => true
+            },
+            None => false
         }
     }
 
@@ -105,10 +122,11 @@ impl Listing {
         return serde_json::to_string(self).expect("FATAL");
     }
 
-    pub fn from_json(&self, ser_string:String) -> Result<ListItem, std::error>
+    pub fn from_json(&self, ser_string:String) -> Result<ListItem, bool>
     {
-        return serde_json::from_str(ser_string.unwrap().as_str())?
+        serde_json::from_str(ser_string.as_str()).unwrap_or_else(|e| Err(false))
     }
+
     fn load_json(&mut self, file_path:&str) -> Result<bool, io::Error>
     {
         let file = File::open(file_path)?;
@@ -116,13 +134,14 @@ impl Listing {
         for line in reader.lines() {
             let m_res = match line{
                 Err(_) => continue,
-                Ok(t ) => self.from_json(t.unwrap())
+                Ok(t ) => self.from_json(t)
             };
-            let m_other = match m_res{
+            match m_res{
                 Err(_) => continue,
-                Ok(t ) =>  self.add(t.unwrap())
+                Ok(t ) =>  self.add(t)
             };
         }
+        Ok(true)
     }
 
     fn write_json(&mut self, file_path:&str, list:Vec<String>) -> Result<bool, io::Error>
@@ -132,5 +151,15 @@ impl Listing {
             write!(file, "{}", item)?;
         }
         Ok(true)
+    }
+
+    fn filter_completed(&self) -> Vec<&ListItem>
+    {
+        self.internal_list.iter(). filter(|x| x.is_done()).collect()
+    }
+
+    fn filter_by_group(&self, group:String) -> Vec<&ListItem>
+    {
+        self.internal_list.iter(). filter(|x| x.group == group).collect()
     }
 }

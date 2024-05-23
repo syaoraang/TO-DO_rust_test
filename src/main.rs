@@ -4,7 +4,7 @@
     Guardar listas en archivos y cargarlas al iniciar
 */
 
-mod m_listing;
+mod listing;
 mod m_logger;
 
 //use log::{error, info, warn, debug};
@@ -20,7 +20,7 @@ fn main() {
     info!("{:?}", "Info log");
     warn!("{:#?}", "Warn log");*/
 
-    let mut my_listing:m_listing::Listing = m_listing::Listing::default();..
+    let mut my_listing: listing::Listing = listing::Listing::default();
     my_listing.emplace("Dar amor a mi amorcito".to_string());
     println!("{}", &my_listing.pretty_printing());
     my_listing.emplace("Jugar con Benji".to_string());
