@@ -3,10 +3,10 @@ mod list_type;
 use std::string::String;
 use list_type::ListType;
 use std::fmt::{Display, Error, Formatter};
-use std::{io, usize};
+use std::{fs, io, usize};
 use std::cmp::PartialEq;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::fs::File;
 //use serde_json::Value::String;
 
@@ -19,15 +19,16 @@ impl Default for Group
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 #[derive(Serialize, Deserialize)]
-struct ListItem
+pub struct ListItem
 {
     text: String,
     id: u8,
     status: ListType,
     group: String
 }
+
 
 impl PartialEq for ListType {
     fn eq(&self, other: &Self) -> bool {
@@ -38,7 +39,11 @@ impl PartialEq for ListType {
 impl ListItem {
     fn is_done(&self) -> bool
     {
-        self.status == ListType::Done
+        return match self.status
+        {
+            ListType::Done => true,
+            _ => false
+        }
     }
 }
 #[derive(Default)]
@@ -51,12 +56,16 @@ pub struct Listing
 
 impl Listing {
 
+    pub fn num_items(&self) -> usize
+    {
+        return self.internal_list.len()
+    }
     fn new() -> Listing
     {
         return Listing::default();
     }
 
-    fn add(&mut self, item:ListItem)
+    pub fn add(&mut self, item:ListItem)
     {
         self.internal_list.push(item);
     }
@@ -107,10 +116,19 @@ impl Listing {
         item.text = text;
     }
 
-    pub fn pretty_printing(&self) -> String
+    pub fn pretty_printing_(&self) -> String
     {
+        let list = &self.internal_list.iter().collect();
+        self.pretty_printing(list)
+    }
+    pub fn pretty_printing(&self, list:&Vec<&ListItem>) -> String
+    {
+        if list.is_empty()
+        {
+            return String::from("None");
+        }
         let mut internal_string: String = String::new();
-        for item in &self.internal_list
+        for item in list
         {
             internal_string.push_str(&format!("ID:{}\nTask: {}\nStatus: {}\n\n\n", item.id, item.text, item.status));
         }
@@ -127,9 +145,9 @@ impl Listing {
         serde_json::from_str(ser_string.as_str()).unwrap_or_else(|e| Err(false))
     }
 
-    fn load_json(&mut self, file_path:&str) -> Result<bool, io::Error>
+    pub fn load_json(&mut self, file_path:&str) -> Result<bool, io::Error>
     {
-        let file = File::open(file_path)?;
+        /*let file = File::open(file_path)?;
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let m_res = match line{
@@ -140,25 +158,34 @@ impl Listing {
                 Err(_) => continue,
                 Ok(t ) =>  self.add(t)
             };
-        }
+        }*/
+        let message = match fs::read_to_string(file_path)
+        {
+            Ok(t) => t,
+            Err(_) => { fs::File::create(file_path)?; return Ok(true)}
+        };
+        self.from_json(message);
         Ok(true)
     }
 
-    fn write_json(&mut self, file_path:&str, list:Vec<String>) -> Result<bool, io::Error>
+    pub fn write_json(&mut self, file_path:&str) -> Result<bool, io::Error>
     {
-        let mut file = File::open(file_path).unwrap_or(File::create(file_path)?);
-        for item in list.iter() {
+        let mut file = File::open(file_path)?;//.unwrap_or(File::create(file_path)?);
+        /*for item in list.iter() {
             write!(file, "{}", item)?;
-        }
+        }*/
+        let my_json = self.to_json();
+        //write!(file, "{}", my_json)?;
+        file.write_all(my_json.as_bytes());
         Ok(true)
     }
 
-    fn filter_completed(&self) -> Vec<&ListItem>
+    pub fn filter_completed(&self) -> Vec<&ListItem>
     {
-        self.internal_list.iter(). filter(|x| x.is_done()).collect()
+        self.internal_list.iter().filter(|x| x.is_done()).collect()
     }
 
-    fn filter_by_group(&self, group:String) -> Vec<&ListItem>
+    pub fn filter_by_group(&self, group:String) -> Vec<&ListItem>
     {
         self.internal_list.iter(). filter(|x| x.group == group).collect()
     }

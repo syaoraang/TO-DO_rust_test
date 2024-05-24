@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 #[derive(Serialize, Deserialize)]
 pub enum ListType
 {
