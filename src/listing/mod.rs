@@ -2,13 +2,13 @@ mod list_type;
 
 use std::string::String;
 use list_type::ListType;
-use std::fmt::{Display, Error, Formatter};
+use std::fmt::{Display};
 use std::{fs, io, usize};
 use std::cmp::PartialEq;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::fs::File;
-//use serde_json::Value::String;
+use log::debug;
 
 struct Group(String);
 
@@ -52,6 +52,22 @@ pub struct Listing
 {
     internal_list: Vec<ListItem>,
     last_id: u8
+}
+
+
+pub fn load_json(file_path:&str) -> Listing
+{
+    let message = match fs::read_to_string(file_path)
+    {
+        Ok(t) => {debug!("Read: {}", t);t},
+        Err(_) => return Listing::default(),
+    };
+    //match from_json(message)
+    match serde_json::from_str(message.as_str())
+    {
+        Ok(t) => return t,
+        Err(e) => {println!("Error parsing the data"); return Listing::default()}
+    }
 }
 
 impl Listing {
@@ -109,11 +125,12 @@ impl Listing {
         }
     }
 
-    pub fn update_text(&mut self, id:u8, text: String)
+    pub fn update_text(&mut self, id:u8, text: String) -> bool
     {
-        let mut item:&mut ListItem = self.find_item_mut(id).unwrap();
-        //item.text.clear();
-        item.text = text;
+        match self.find_item_mut(id) {
+            Some(t) => {t.text = text; return true},
+            _ => return false
+        }
     }
 
     pub fn pretty_printing_(&self) -> String
@@ -140,43 +157,19 @@ impl Listing {
         return serde_json::to_string(self).expect("FATAL");
     }
 
-    pub fn from_json(&self, ser_string:String) -> Result<ListItem, bool>
+    pub fn from_json(ser_string:String) -> Result<Listing, bool>
     {
-        serde_json::from_str(ser_string.as_str()).unwrap_or_else(|e| Err(false))
-    }
-
-    pub fn load_json(&mut self, file_path:&str) -> Result<bool, io::Error>
-    {
-        /*let file = File::open(file_path)?;
-        let reader = BufReader::new(file);
-        for line in reader.lines() {
-            let m_res = match line{
-                Err(_) => continue,
-                Ok(t ) => self.from_json(t)
-            };
-            match m_res{
-                Err(_) => continue,
-                Ok(t ) =>  self.add(t)
-            };
-        }*/
-        let message = match fs::read_to_string(file_path)
-        {
-            Ok(t) => t,
-            Err(_) => { fs::File::create(file_path)?; return Ok(true)}
-        };
-        self.from_json(message);
-        Ok(true)
+        serde_json::from_str(ser_string.as_str()).unwrap_or_else(|t| {
+            println!("{}", t);
+            Err(false)
+        })
     }
 
     pub fn write_json(&mut self, file_path:&str) -> Result<bool, io::Error>
     {
-        let mut file = File::open(file_path)?;//.unwrap_or(File::create(file_path)?);
-        /*for item in list.iter() {
-            write!(file, "{}", item)?;
-        }*/
+        let mut file = File::create(file_path).unwrap_or(File::create(file_path)?);
         let my_json = self.to_json();
-        //write!(file, "{}", my_json)?;
-        file.write_all(my_json.as_bytes());
+        file.write_all(&my_json.as_bytes())?;
         Ok(true)
     }
 

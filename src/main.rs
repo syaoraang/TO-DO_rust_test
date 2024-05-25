@@ -13,6 +13,7 @@ use dialoguer::{theme::ColorfulTheme, Input, Select};
 use crate::listing::{Listing, ListItem};
 
 const FILE_OUTPUT:&'static str = "File.log";
+const LOG_OUTPUT: &'static str = "traces.log";
 
 fn add_item(listing: &mut Listing)
 {
@@ -62,8 +63,11 @@ fn modify_item(listing: &mut Listing)
             1 => println!("{}", match get_index("Select_index") {
                 x if x < 0 => "Bad index",
                 x if (x > 0 && x <= listing.num_items() as i32) => {
-                    listing.update_text(x as u8, get_new_text("Input"));
-                    "Modified"
+                    match listing.update_text(x as u8, get_new_text("Input"))
+                    {
+                        true => "Item modified",
+                        false => "Can't access the item",
+                    }
                 },
                 _ => "Bad choice"
             }),
@@ -114,18 +118,10 @@ fn main() {
         "Remove Item",
         "Close"
     ];
-    // Using configuration files
-    // log4rs::init_file("src/conf_log4rs.yaml", Default::default()).unwrap();
-    // Using mini-framework
-    // m_logger::init_logs("file.log");
-    // Example of usage
-    /*debug!("Debug log");
-    error!("{}", "Error log");
-    info!("{:?}", "Info log");
-    warn!("{:#?}", "Warn log");*/
-    let mut my_listing: listing::Listing = listing::Listing::default();
-    my_listing.load_json(FILE_OUTPUT).unwrap();
-    /*let mut exit = false;
+    
+    m_logger::init_logs(LOG_OUTPUT);
+    let mut my_listing: Listing = listing::load_json(FILE_OUTPUT);
+    let mut exit = false;
     while !exit {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select your option")
@@ -142,8 +138,9 @@ fn main() {
             5 => exit=true,
             _ => println!("Unknown choice")
         }
-    }*/
+    }
+    /*println!("{}", my_listing.pretty_printing_());
     my_listing.emplace("Gato".to_string());
-    my_listing.emplace("Perro".to_string());
+    my_listing.emplace("Perro".to_string());*/
     my_listing.write_json(FILE_OUTPUT).unwrap();
 }
