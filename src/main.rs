@@ -7,107 +7,20 @@
 mod listing;
 mod m_logger;
 
-//use log::{error, info, warn, debug};
+mod list_manager;
+mod dialogue_manager;
+use crate::dialogue_manager::Dialogue_manager;
+use crate::list_manager::{ListManager};
+//use crate::m_logger::*;
+use dialoguer::{theme::ColorfulTheme, Input};
+use std::string::String;
+use std::fs;
+use log::{error, info, warn, debug};
 use log4rs;
-use dialoguer::{theme::ColorfulTheme, Input, Select};
 use crate::listing::{Listing, ListItem};
 
-const FILE_OUTPUT:&'static str = "File.log";
+const FILE_OUTPUT: &'static str = "File.log";
 const LOG_OUTPUT: &'static str = "traces.log";
-
-fn add_item(listing: &mut Listing)
-{
-    let input: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("Enter text")
-        .interact_text()
-        .unwrap();
-    listing.emplace(input)
-}
-
-fn get_index(prompt_str: &str) -> i32
-{
-    let input: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt(prompt_str)
-        .interact_text()
-        .unwrap();
-    return input.parse::<i32>().unwrap_or(-1)
-}
-
-fn get_new_text(prompt_str: &str) -> String
-{
-    let input: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt(prompt_str)
-        .interact_text()
-        .unwrap();
-    return input
-}
-
-fn modify_item(listing: &mut Listing)
-{
-    let selections = &[
-        "List Items",
-        "Select ID",
-        "Close"
-    ];
-    let mut exit:bool = false;
-    while !exit
-    {
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Select option")
-            .default(0)
-            .items(&selections[..])
-            .interact()
-            .unwrap();
-        match selection {
-            0 => println!("{}", listing.pretty_printing_()),
-            1 => println!("{}", match get_index("Select_index") {
-                x if x < 0 => "Bad index",
-                x if (x > 0 && x <= listing.num_items() as i32) => {
-                    match listing.update_text(x as u8, get_new_text("Input"))
-                    {
-                        true => "Item modified",
-                        false => "Can't access the item",
-                    }
-                },
-                _ => "Bad choice"
-            }),
-            2 => exit = true,
-            _ => println!("Bad choice, try again")
-        }
-    }
-}
-
-fn remove_item(listing: &mut Listing)
-{
-    let selections = &[
-        "List Items",
-        "Select ID",
-        "Close"
-    ];
-    let mut exit:bool = false;
-    while !exit
-    {
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Select option")
-            .default(0)
-            .items(&selections[..])
-            .interact()
-            .unwrap();
-        match selection {
-            0 => println!("{}", listing.pretty_printing_()),
-            1 => println!("{}", match get_index("Get index") {
-                x if x < 0 => "Bad index",
-                x if (x > 0 && x <= listing.num_items() as i32) => {
-                    listing.remove(x as u8);
-                    "Modified"
-                },
-                _ => "Bad choice"
-            }),
-            2 => exit = true,
-            _ => println!("Bad choice, try again")
-        }
-    }
-}
 
 fn main() {
     let selections = &[
@@ -116,26 +29,25 @@ fn main() {
         "Add item",
         "Modify Item",
         "Remove Item",
+        "Change list",
         "Close"
     ];
-    
+
     m_logger::init_logs(LOG_OUTPUT);
+    let dialogue_manager = Dialogue_manager::default();
+    let mut list_manager = ListManager::new(&dialogue_manager);
     let mut my_listing: Listing = listing::load_json(FILE_OUTPUT);
     let mut exit = false;
     while !exit {
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Select your option")
-            .default(0)
-            .items(&selections[..])
-            .interact()
-            .unwrap();
+        let selection = dialogue_manager.get_selection_default(selections.to_vec());
         match selection {
             0 => println!("{}", my_listing.pretty_printing_()),
             1 => println!("{}", my_listing.pretty_printing(&my_listing.filter_completed())),
-            2 => add_item(&mut my_listing),
-            3 => modify_item(&mut my_listing),
-            4 => remove_item(&mut my_listing),
-            5 => exit=true,
+            2 => list_manager.add_item(&mut my_listing),
+            3 => list_manager.modify_item(&mut my_listing),
+            4 => list_manager.remove_item(&mut my_listing),
+            5 => list_manager.change_list(),
+            6 => exit = true,
             _ => println!("Unknown choice")
         }
     }

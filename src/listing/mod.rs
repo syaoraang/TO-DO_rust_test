@@ -8,7 +8,7 @@ use std::cmp::PartialEq;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Read, Write};
 use std::fs::File;
-use log::debug;
+use log::{debug, info};
 
 struct Group(String);
 
@@ -57,12 +57,12 @@ pub struct Listing
 
 pub fn load_json(file_path:&str) -> Listing
 {
+    info!("File to open {}", file_path);
     let message = match fs::read_to_string(file_path)
     {
         Ok(t) => {debug!("Read: {}", t);t},
         Err(_) => return Listing::default(),
     };
-    //match from_json(message)
     match serde_json::from_str(message.as_str())
     {
         Ok(t) => return t,

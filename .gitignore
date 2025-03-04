@@ -1,3 +1,6 @@
 /target
 file.log
 /log
+/img
+.idea
+traces.log
