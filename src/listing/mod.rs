@@ -3,7 +3,7 @@ mod list_type;
 use std::string::String;
 use list_type::ListType;
 use std::fmt::{Display};
-use std::{fs, io, usize};
+use std::{io, usize};
 use std::cmp::PartialEq;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Read, Write};
@@ -54,21 +54,6 @@ pub struct Listing
     last_id: u8
 }
 
-
-pub fn load_json(file_path:&str) -> Listing
-{
-    info!("File to open {}", file_path);
-    let message = match fs::read_to_string(file_path)
-    {
-        Ok(t) => {debug!("Read: {}", t);t},
-        Err(_) => return Listing::default(),
-    };
-    match serde_json::from_str(message.as_str())
-    {
-        Ok(t) => return t,
-        Err(e) => {println!("Error parsing the data"); return Listing::default()}
-    }
-}
 
 impl Listing {
 
@@ -127,17 +112,17 @@ impl Listing {
 
     pub fn update_text(&mut self, id:u8, text: String) -> bool
     {
-        match self.find_item_mut(id) {
-            Some(t) => {t.text = text; return true},
-            _ => return false
+        return match self.find_item_mut(id)
+        {
+            Some(list_item) => {
+                list_item.text = text;
+                true
+            },
+            _ => false
         }
     }
 
-    pub fn pretty_printing_(&self) -> String
-    {
-        let list = &self.internal_list.iter().collect();
-        self.pretty_printing(list)
-    }
+
     pub fn pretty_printing(&self, list:&Vec<&ListItem>) -> String
     {
         if list.is_empty()
@@ -147,37 +132,28 @@ impl Listing {
         let mut internal_string: String = String::new();
         for item in list
         {
-            internal_string.push_str(&format!("ID:{}\nTask: {}\nStatus: {}\n\n\n", item.id, item.text, item.status));
+            internal_string.push_str(&format!("ID:{}\nTask: {}\nStatus: {}\n\n\n", &item.id, &item.text, &item.status));
         }
         return internal_string;
     }
 
-    pub fn to_json(&self) -> String
+    pub fn pretty_printing_all(&self) -> String
     {
-        return serde_json::to_string(self).expect("FATAL");
+        self.pretty_printing(&self.internal_list.iter().collect())
     }
-
-    pub fn from_json(ser_string:String) -> Result<Listing, bool>
+    pub fn pretty_printing_completed(&self) -> String
     {
-        serde_json::from_str(ser_string.as_str()).unwrap_or_else(|t| {
-            println!("{}", t);
-            Err(false)
-        })
-    }
-
-    pub fn write_json(&mut self, file_path:&str) -> Result<bool, io::Error>
-    {
-        let mut file = File::create(file_path).unwrap_or(File::create(file_path)?);
-        let my_json = self.to_json();
-        file.write_all(&my_json.as_bytes())?;
-        Ok(true)
+        self.pretty_printing(&self.filter_completed())
     }
 
     pub fn filter_completed(&self) -> Vec<&ListItem>
     {
-        self.internal_list.iter().filter(|x| x.is_done()).collect()
+        self.internal_list.iter().filter(|&x| x.is_done()).collect::<Vec<&ListItem>>()
     }
 
+    pub fn get_all_items(&self) -> &Vec<ListItem> {
+        return &self.internal_list
+    }
     pub fn filter_by_group(&self, group:String) -> Vec<&ListItem>
     {
         self.internal_list.iter(). filter(|x| x.group == group).collect()

@@ -1,44 +1,60 @@
-use std::fs;
+use std::{default, env, fs, io};
+use std::fs::File;
+use std::io::Write;
 use dialoguer::{Select, theme::ColorfulTheme, Input};
-use crate::listing;
-use crate::listing::{Listing};
+use log::{debug, info};
+use crate::{listing, DEFAULT_LIST_FILE};
+use crate::listing::{ListItem, Listing};
 use crate::dialogue_manager::Dialogue_manager;
 
-const PATH_LOGS: &'static str = "./logs/";
-const PATH_FILES: &'static str = "./files/";
+pub const PATH_LISTS: &'static str = "./files/";
 
 pub struct ListManager
 {
-    files_path: String,
+    default_list_path: String,
     current_list: Listing,
+    current_path: String,
     list_files: Vec<String>,
-    num_file: usize,
     dialogue_manager: Dialogue_manager
+}
+
+impl ListManager {
+    pub fn get_current_list(&self) -> & Listing {
+        &self.current_list
+    }
 }
 
 impl Default for ListManager
 {
     fn default() -> Self {
-        let mut list = ListManager { files_path: PATH_FILES.to_string(), current_list: Listing::default(), list_files: Vec::new(), num_file: 0, dialogue_manager: Dialogue_manager::default() };
-        list
+        let default_list_path: String = std::path::Path::new(PATH_LISTS).join(DEFAULT_LIST_FILE).to_str().unwrap().to_string();
+        let default_listing = ListManager::load_json(&default_list_path);
+        let mut list_files = Vec::new();
+        list_files.push(default_list_path.to_string());
+        ListManager { default_list_path: default_list_path.clone(), current_path: default_list_path, current_list: default_listing, list_files: list_files, dialogue_manager: Dialogue_manager::default() }
     }
 }
 impl ListManager {
 
     pub fn new(dialogue_manager: &Dialogue_manager) -> Self {
-        ListManager { files_path: PATH_FILES.to_string(), current_list: Listing::default(), list_files: Vec::new(), num_file: 0, dialogue_manager: dialogue_manager.clone() }
+        let mut default_list_manager = ListManager::default();
+        default_list_manager.dialogue_manager = dialogue_manager.clone();
+        if(default_list_manager.current_list.num_items() == 0) {
+            default_list_manager.populate_listing();
+        }
+        default_list_manager
     }
     fn load_listing(&mut self, index: usize)
     {
-        self.current_list = listing::load_json(self.list_files[index].as_str())
+        self.current_list = ListManager::load_json(self.list_files[index].as_str())
     }
     fn retrieve_files(&mut self) {
         let mut list: Vec<String> = Vec::new();
-        if !fs::exists(PATH_FILES).unwrap()
+        if !fs::exists(PATH_LISTS).unwrap()
         {
             return;
         }
-        for entry in fs::read_dir(PATH_FILES).unwrap() {
+        for entry in fs::read_dir(PATH_LISTS).unwrap() {
             let entry = entry.unwrap().path().canonicalize().unwrap().to_str().unwrap().to_string();
             list.push(entry);
         }
@@ -97,33 +113,36 @@ impl ListManager {
         }
     }
 
-    pub fn add_item(&mut self, listing: &mut Listing)
+    pub fn add_item(&mut self)
     {
         let input: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Enter text")
             .interact_text()
             .unwrap();
         let input = self.dialogue_manager.get_input_string("Enter text");
-        listing.emplace(input)
+        &self.current_list.emplace(input);
     }
 
-    pub fn modify_item(&mut self, listing: &mut Listing)
+    pub fn modify_item(&mut self)
     {
         let selections = &[
             "List Items",
             "Select ID",
             "Close"
         ];
+        let mut listing: &mut Listing = &mut self.current_list;
+        let dialogue_manager = &self.dialogue_manager;
         let mut exit: bool = false;
         while !exit
         {
-            let selection = self.dialogue_manager.get_selection_default(selections.to_vec());
+            let selection = dialogue_manager.get_selection_default(selections.to_vec());
             match selection {
-                0 => println!("{}", listing.pretty_printing_()),
-                1 => println!("{}", match self.dialogue_manager.get_input_i32("Select_index") {
+                0 => println!("{}", listing.pretty_printing_all()),
+                1 => println!("{}", match dialogue_manager.get_input_i32("Select_index") {
                     x if x < 0 => "Bad index",
                     x if (x > 0 && x <= listing.num_items() as i32) => {
-                        match listing.update_text(x as u8, self.dialogue_manager.get_input_string("Input"))
+                        let input_text = dialogue_manager.get_input_string("Input");
+                        match listing.update_text(x as u8, input_text)
                         {
                             true => "Item modified",
                             false => "Can't access the item",
@@ -137,8 +156,10 @@ impl ListManager {
         }
     }
 
-    pub fn remove_item(&mut self, listing: &mut Listing)
+    pub fn remove_item(&mut self)
     {
+        let mut listing: &mut Listing = &mut self.current_list;
+        let dialogue_manager = &self.dialogue_manager;
         let selections = &[
             "List Items",
             "Select ID",
@@ -147,10 +168,10 @@ impl ListManager {
         let mut exit: bool = false;
         while !exit
         {
-            let selection = self.dialogue_manager.get_selection_default(selections.to_vec());
+            let selection = dialogue_manager.get_selection_default(selections.to_vec());
             match selection {
-                0 => println!("{}", listing.pretty_printing_()),
-                1 => println!("{}", match self.dialogue_manager.get_input_i32("Get index") {
+                0 => println!("{}", listing.pretty_printing_all()),
+                1 => println!("{}", match dialogue_manager.get_input_i32("Get index") {
                     x if x < 0 => "Bad index",
                     x if (x > 0 && x <= listing.num_items() as i32) => {
                         listing.remove(x as u8);
@@ -166,7 +187,7 @@ impl ListManager {
 
     pub fn pretty_printing_files(&self) -> String
     {
-        let mut list = &self.list_files;
+        let list = &self.list_files;
         let mut internal_string = String::new();
         let mut i=0;
         if list.is_empty()
@@ -180,7 +201,66 @@ impl ListManager {
         }
         return internal_string;
     }
+
+    pub fn load_json(file_path:&str) -> Listing
+    {
+        let message = match fs::read_to_string(file_path)
+        {
+            Ok(t) => {debug!("Read: {}", t);t},
+            Err(_) => return Listing::default(),
+        };
+        match serde_json::from_str(message.as_str())
+        {
+            Ok(t) => return t,
+            Err(e) => {println!("Error parsing the data"); return Listing::default()}
+        }
+    }
+
+    pub fn from_json(ser_string:String) -> Result<Listing, bool>
+    {
+        serde_json::from_str(ser_string.as_str()).unwrap_or_else(|t| {
+            println!("{}", t);
+            Err(false)
+        })
+    }
+
+    pub fn write_json(&self) -> Result<bool, io::Error>
+    {
+        let file_path = &self.current_path;
+        self.write_json_to(file_path)
+    }
+    pub fn write_json_to(&self, file_path:&str) -> Result<bool, io::Error>
+    {
+        let mut file = File::create(file_path).unwrap_or(File::create(file_path)?);
+        let my_json = serde_json::to_string(&self.current_list).expect("FATAL");
+        file.write_all(&my_json.as_bytes())?;
+        Ok(true)
+    }
+
+    pub fn pretty_printing_all(&self) -> String
+    {
+        self.current_list.pretty_printing_all()
+    }
+    pub fn pretty_printing_completed(&self) -> String
+    {
+        self.current_list.pretty_printing_completed()
+    }
+
+    fn populate_listing(&mut self)
+    {
+        let mut my_listing = &mut self.current_list;
+        let items_list = &[
+            "Gato",
+            "Perro",
+            "Hamster",
+            "Loro",
+            "Tortuga",
+            "Canguro",
+            "Oso",
+        ];
+        for &item in items_list
+        {
+            my_listing.emplace(item.to_string());
+        }
+    }
 }
-
-
-

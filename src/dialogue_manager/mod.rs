@@ -1,5 +1,5 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-
+use crate::listing::ListItem;
 
 pub struct Dialogue_manager
 {
