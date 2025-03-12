@@ -17,7 +17,7 @@ const DEFAULT_LIST_FILE: &'static str = "File_list_default.txt";
 fn main() {
     let selections = &[
         "List All items",
-        "List TO-DO items",
+        "List completed items",
         "Add item",
         "Modify Item",
         "Remove Item",
@@ -42,5 +42,8 @@ fn main() {
             _ => println!("Unknown choice")
         }
     }
-    list_manager.write_json().unwrap();
+    match list_manager.write_json() {
+        Ok(_) => (),
+        Err(e) => println!("{}", e),
+    }
 }

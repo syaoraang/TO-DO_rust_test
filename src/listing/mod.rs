@@ -30,11 +30,6 @@ pub struct ListItem
 }
 
 
-impl PartialEq for ListType {
-    fn eq(&self, other: &Self) -> bool {
-        self.eq(other)
-    }
-}
 
 impl ListItem {
     fn is_done(&self) -> bool
@@ -104,7 +99,7 @@ impl Listing {
     {
         match self.find_position(id){
             Some(t) => match self.internal_list.remove(t) {
-                t => true
+                _ => true
             },
             None => false
         }

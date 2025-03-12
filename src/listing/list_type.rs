@@ -9,6 +9,14 @@ pub enum ListType
     Todo,
     Done
 }
+
+impl PartialEq for ListType {
+    fn eq(&self, other: &Self) -> bool {
+        self == &ListType::Done && other == &ListType::Done ||
+            self == &ListType::Todo && self == &ListType::Todo
+    }
+}
+
 impl Display for ListType
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

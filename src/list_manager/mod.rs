@@ -27,7 +27,12 @@ impl ListManager {
 impl Default for ListManager
 {
     fn default() -> Self {
-        let default_list_path: String = std::path::Path::new(PATH_LISTS).join(DEFAULT_LIST_FILE).to_str().unwrap().to_string();
+        let default_folder = std::path::Path::new(PATH_LISTS);
+        let default_list_path: String = default_folder.join(DEFAULT_LIST_FILE).to_str().unwrap().to_string();
+        if!default_folder.exists() {
+            fs::create_dir(&default_folder).expect("Could not create directory");
+            File::create(&default_list_path).unwrap();
+        }
         let default_listing = ListManager::load_json(&default_list_path);
         let mut list_files = Vec::new();
         list_files.push(default_list_path.to_string());
@@ -39,14 +44,16 @@ impl ListManager {
     pub fn new(dialogue_manager: &Dialogue_manager) -> Self {
         let mut default_list_manager = ListManager::default();
         default_list_manager.dialogue_manager = dialogue_manager.clone();
-        if(default_list_manager.current_list.num_items() == 0) {
+        if default_list_manager.current_list.num_items() == 0 {
             default_list_manager.populate_listing();
         }
         default_list_manager
     }
     fn load_listing(&mut self, index: usize)
     {
-        self.current_list = ListManager::load_json(self.list_files[index].as_str())
+        self.write_json().unwrap();
+        self.current_list = ListManager::load_json(self.list_files[index].as_str());
+        self.current_path = self.list_files[index].clone();
     }
     fn retrieve_files(&mut self) {
         let mut list: Vec<String> = Vec::new();
@@ -64,8 +71,6 @@ impl ListManager {
 
     pub fn change_list(&mut self)
     {
-        let mut empty_lists = false;
-        //let mut mylisting: Listing = Listing::default();
         let selections_lists: &'static [&str] = &[
             "List lists",
             "Select ID",
@@ -76,9 +81,10 @@ impl ListManager {
         ];
         self.retrieve_files();
         let mut exit: bool = false;
+        let mut selection: usize;
         if self.list_files.is_empty()
         {
-            let selection = self.dialogue_manager.get_selection("Nothing to list", selections_empty.to_vec());
+            selection = self.dialogue_manager.get_selection("Nothing to list", selections_empty.to_vec());
 
             match selection {
                 0 => {println!("Returning");},
@@ -87,38 +93,34 @@ impl ListManager {
         }
         else
         {
-            while !exit
-            {
-                self.change_list_inner( &selections_lists);
-            }
+            self.change_list_inner(&selections_lists);
         }
     }
 
     pub fn change_list_inner(&mut self, selections_lists: &[&str]) {
-        let exit: bool;
-
-        let selection = self.dialogue_manager.get_selection_default(selections_lists.to_vec());
-        match selection {
-            0 => { println!("{}", self.pretty_printing_files()) },
-            1 => println!("{}", match self.dialogue_manager.get_input_i32("Get index") {
-                x if x < 0 => "Bad index",
-                x if (x > 0 && x <= self.list_files.len() as i32) => {
-                    self.load_listing(x as usize);
-                    "Modified"
+        let mut exit: bool = false;
+        while !exit {
+            let selection = self.dialogue_manager.get_selection_default(selections_lists.to_vec());
+            match selection {
+                0 => {
+                    println!("{}", self.pretty_printing_files())
                 },
-                _ => "Bad choice"
-            }),
-            2 => exit = true,
-            _ => println!("Bad choice, try again")
+                1 => println!("{}", match self.dialogue_manager.get_input_i32("Get index") {
+                    x if x < 0 => "Bad index",
+                    x if (x >= 0 && x <= self.list_files.len() as i32) => {
+                        self.load_listing(x as usize);
+                        "Modified"
+                    },
+                    _ => "Bad choice"
+                }),
+                2 => exit = true,
+                _ => println!("Bad choice, try again")
+            }
         }
     }
 
     pub fn add_item(&mut self)
     {
-        let input: String = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("Enter text")
-            .interact_text()
-            .unwrap();
         let input = self.dialogue_manager.get_input_string("Enter text");
         &self.current_list.emplace(input);
     }
@@ -231,7 +233,10 @@ impl ListManager {
     }
     pub fn write_json_to(&self, file_path:&str) -> Result<bool, io::Error>
     {
-        let mut file = File::create(file_path).unwrap_or(File::create(file_path)?);
+        let mut file = match File::create(file_path) {
+            Ok(t) => t,
+            Err(e) => return Err(io::Error::new(io::ErrorKind::Other,format!("Could not create the file: {}\n{}", file_path, e))),
+        };
         let my_json = serde_json::to_string(&self.current_list).expect("FATAL");
         file.write_all(&my_json.as_bytes())?;
         Ok(true)
