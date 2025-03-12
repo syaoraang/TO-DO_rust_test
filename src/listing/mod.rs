@@ -40,6 +40,15 @@ impl ListItem {
             _ => false
         }
     }
+    fn mark_done(&mut self)
+    {
+        self.status = ListType::Done
+    }
+
+    fn unmark_done(&mut self)
+    {
+        self.status = ListType::Todo
+    }
 }
 #[derive(Default)]
 #[derive(Serialize, Deserialize)]
@@ -141,9 +150,19 @@ impl Listing {
         self.pretty_printing(&self.filter_completed())
     }
 
+    pub fn pretty_printing_todo(&self) -> String
+    {
+        self.pretty_printing_todo(&self.filter_completed())
+    }
+
     pub fn filter_completed(&self) -> Vec<&ListItem>
     {
         self.internal_list.iter().filter(|&x| x.is_done()).collect::<Vec<&ListItem>>()
+    }
+
+    pub fn filter_todo(&self) -> Vec<&ListItem>
+    {
+        self.internal_list.iter().filter(|&x| !x.is_done()).collect::<Vec<&ListItem>>()
     }
 
     pub fn get_all_items(&self) -> &Vec<ListItem> {

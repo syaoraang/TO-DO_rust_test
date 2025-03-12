@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+use crate::listing::ListItem;
 
 #[derive(Default, Clone)]
 #[derive(Serialize, Deserialize)]

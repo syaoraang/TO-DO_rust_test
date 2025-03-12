@@ -2,5 +2,6 @@
 file.log
 /log
 /img
+/files
 .idea
 traces.log

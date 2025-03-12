@@ -3,8 +3,11 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Root};
-use crate::DEFAULT_LIST_FILE;
-use crate::list_manager::PATH_LISTS;
+
+/*
+Load this where we would need to use the logger.
+use log::{error, info, warn, debug};
+*/
 
 const LOG_OUTPUT: &'static str = "traces.log";
 const PATH_LOGS: &'static str = "./logs/";

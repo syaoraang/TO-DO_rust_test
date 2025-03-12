@@ -3,10 +3,10 @@ use std::fs::File;
 use std::io::Write;
 use dialoguer::{Select, theme::ColorfulTheme, Input};
 use log::{debug, info};
-use crate::{listing, DEFAULT_LIST_FILE};
 use crate::listing::{ListItem, Listing};
 use crate::dialogue_manager::Dialogue_manager;
 
+const DEFAULT_LIST_FILE: &'static str = "File_list_default.txt";
 pub const PATH_LISTS: &'static str = "./files/";
 
 pub struct ListManager
@@ -80,7 +80,6 @@ impl ListManager {
             "Close"
         ];
         self.retrieve_files();
-        let mut exit: bool = false;
         let mut selection: usize;
         if self.list_files.is_empty()
         {
@@ -246,9 +245,15 @@ impl ListManager {
     {
         self.current_list.pretty_printing_all()
     }
+
     pub fn pretty_printing_completed(&self) -> String
     {
         self.current_list.pretty_printing_completed()
+    }
+
+    pub fn pretty_printing_todo(&self) -> String
+    {
+        self.current_list.pretty_printing_todo()
     }
 
     fn populate_listing(&mut self)
