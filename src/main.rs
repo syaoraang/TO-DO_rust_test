@@ -7,7 +7,7 @@ use crate::dialogue_manager::Dialogue_manager;
 use crate::list_manager::ListManager;
 use log4rs;
 
-
+// TODO: Use multiple selection on modifications of items
 fn main() {
     const SELECTIONS: &'static [&str] = &[
         "List TODO items",

@@ -1,6 +1,7 @@
 use std::{default, env, fs, io};
 use std::fs::File;
 use std::io::Write;
+use std::thread::current;
 use dialoguer::{Select, theme::ColorfulTheme, Input};
 use log::{debug, info};
 use crate::listing::{ListItem, Listing};
@@ -126,33 +127,25 @@ impl ListManager {
 
     pub fn modify_item(&mut self)
     {
-        let selections = &[
-            "List Items",
-            "Select ID",
-            "Close"
-        ];
         let mut listing: &mut Listing = &mut self.current_list;
         let dialogue_manager = &self.dialogue_manager;
-        let mut exit: bool = false;
-        while !exit
-        {
-            let selection = dialogue_manager.get_selection_default(selections.to_vec());
-            match selection {
-                0 => println!("{}", listing.pretty_printing_all()),
-                1 => println!("{}", match dialogue_manager.get_input_i32("Select_index") {
-                    x if x < 0 => "Bad index",
-                    x if (x > 0 && x <= listing.num_items() as i32) => {
-                        let input_text = dialogue_manager.get_input_string("Input");
-                        match listing.update_text(x as u8, input_text)
-                        {
-                            true => "Item modified",
-                            false => "Can't access the item",
-                        }
-                    },
-                    _ => "Bad choice"
-                }),
-                2 => exit = true,
-                _ => println!("Bad choice, try again")
+        let current_values = "0 - Exit\n".to_owned() + &listing.pretty_printing_all_minimum();
+        let selections_items: Vec<&str> = current_values.split('\n').collect();
+        let selections_gotten = dialogue_manager.get_multiple_input_string("Select at least one item".to_owned(), &selections_items);
+        if selections_gotten == [0] {
+            return
+        }
+        for selection in selections_gotten {
+            let input_text = dialogue_manager.get_input_string_allow_empty(
+                &format!("Item: {}\n Enter new text or blank to cancel", &selections_items[selection])
+            );
+            if input_text.is_empty() {
+                continue
+            }
+            match listing.update_text(selection as u8, input_text)
+            {
+                true => println!("Item modified"),
+                false => println!("Can't access the item"),
             }
         }
     }
@@ -207,7 +200,7 @@ impl ListManager {
     {
         let message = match fs::read_to_string(file_path)
         {
-            Ok(t) => {debug!("Read: {}", t);t},
+            Ok(t) => t,
             Err(_) => return Listing::default(),
         };
         match serde_json::from_str(message.as_str())
