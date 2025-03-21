@@ -37,7 +37,10 @@ impl Default for ListManager
         let default_listing = ListManager::load_json(&default_list_path);
         let mut list_files = Vec::new();
         list_files.push(default_list_path.to_string());
-        ListManager { default_list_path: default_list_path.clone(), current_path: default_list_path, current_list: default_listing, list_files: list_files, dialogue_manager: Dialogue_manager::default() }
+        let mut new_list_manager = ListManager { default_list_path: default_list_path.clone(), current_path: default_list_path, current_list: default_listing, list_files: list_files, dialogue_manager: Dialogue_manager::default() };
+
+        new_list_manager.retrieve_files(&PATH_LISTS.to_owned());
+        return new_list_manager
     }
 }
 impl ListManager {
@@ -56,45 +59,145 @@ impl ListManager {
         self.current_list = ListManager::load_json(self.list_files[index].as_str());
         self.current_path = self.list_files[index].clone();
     }
-    fn retrieve_files(&mut self) {
+    fn load_listing_by_path(&mut self, path: &String)
+    {
+        self.current_list = ListManager::load_json(path.as_str());
+        self.current_path = path.clone();
+    }
+
+    fn load_default_listing(&mut self)
+    {
+        self.current_list = ListManager::load_json(self.default_list_path.as_str());
+        self.current_path = self.default_list_path.clone();
+    }
+
+    fn retrieve_files(&mut self, path: &String) {
         let mut list: Vec<String> = Vec::new();
-        if !fs::exists(PATH_LISTS).unwrap()
+        if !fs::exists(path).unwrap()
         {
             return;
         }
-        for entry in fs::read_dir(PATH_LISTS).unwrap() {
+        for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap().path().canonicalize().unwrap().to_str().unwrap().to_string();
             list.push(entry);
         }
         self.list_files = list;
     }
 
+    pub fn manage_items(&mut self)
+    {
+        let selections_lists: &'static [&str] = &[
+            "List TODO items",
+            "List completed items",
+            "Add item",
+            "Modify Item",
+            "Remove Item",
+            "Close"
+        ];
+        let mut exit = false;
+        while !exit {
+            let mut selection = self.dialogue_manager.get_selection("Select an option", selections_lists.to_vec());
+            match selection {
+                0 => println!("{}", self.pretty_printing_todo()),
+                1 => println!("{}", self.pretty_printing_completed()),
+                2 => self.add_item(),
+                3 => self.modify_item(),
+                4 => self.remove_item(),
+                _ => exit = true
+            }
+        }
+    }
+
+    pub fn manage_lists(&mut self){
+        let selections_lists: &'static [&str] = &[
+            "List lists",
+            "Create new list",
+            "Delete list",
+            "Change list",
+            "Close"
+        ];
+        let mut exit = false;
+        while !exit {
+            let mut selection = self.dialogue_manager.get_selection("Select an option", selections_lists.to_vec());
+            match selection {
+                0 => { println!("{}", &self.pretty_printing_files());},
+                1 => { &self.create_new_list(); },
+                2 => { &self.remove_lists(); },
+                3 => { &self.change_list(); },
+                _ => exit = true
+            }
+        }
+    }
+
+    pub fn get_list_file(&mut self, index:usize) -> String
+    {
+        self.list_files[index].clone()
+    }
+    pub fn remove_lists(&mut self)
+    {
+        //let mut listing: &mut Listing = &mut self.current_list;
+        let dialogue_manager = &self.dialogue_manager.clone();
+        let current_values = "0 - Exit\n".to_owned() + &self.pretty_printing_files();
+        let selections_items: Vec<&str> = current_values.split('\n').collect();
+        let selections_gotten = dialogue_manager.get_multiple_input_string("Select at least one item".to_owned(), &selections_items);
+        if selections_gotten == [0] || (selections_gotten.len() == 1 && selections_gotten[0] > selections_items.len()) {
+            return
+        }
+        for selection in selections_gotten {
+            let choosen = selection - 1;
+            let file_to_remove = self.get_list_file(choosen);
+            let final_choice = dialogue_manager.get_selection(&format!("Do you really want to delete file: {}", &file_to_remove), vec!("No", "Yes"));
+            match final_choice {
+                0 => {println!("Skipping"); },
+                1 => {
+                    println!("Removing file: {}", &file_to_remove);
+                    if file_to_remove == self.current_path
+                    {
+                        if file_to_remove == self.default_list_path
+                        {
+                            self.current_list = Listing::default();
+                        }
+                        else
+                        {
+                            self.load_default_listing();
+                        }
+                        self.write_json().unwrap();
+                    }
+                    fs::remove_file(file_to_remove).unwrap()
+                },
+                _ => {println!("Bad choice"); }
+            }
+        }
+        self.retrieve_files(&PATH_LISTS.to_owned());
+    }
+
+    pub fn create_new_list(&mut self)
+    {
+        let dialogue_manager =  &self.dialogue_manager;
+        let list_name = dialogue_manager.get_input_string("Enter new list name (empty to cancel): ");
+        if list_name == "" {
+            println!("No name given, returning");
+            return;
+        }
+        let default_folder = std::path::Path::new(PATH_LISTS);
+        let new_list_path: String = default_folder.join(list_name).to_str().unwrap().to_string();
+        File::create(&new_list_path).unwrap();
+        self.retrieve_files(&PATH_LISTS.to_owned());
+    }
 
     pub fn change_list(&mut self)
     {
-        let selections_lists: &'static [&str] = &[
-            "List lists",
-            "Select ID",
-            "Close"
-        ];
-        let selections_empty: &'static [&str] = &[
-            "Close"
-        ];
-        self.retrieve_files();
-        let mut selection: usize;
-        if self.list_files.is_empty()
-        {
-            selection = self.dialogue_manager.get_selection("Nothing to list", selections_empty.to_vec());
 
-            match selection {
-                0 => {println!("Returning");},
-                _ => {println!("Bad choice, try again");}
-            }
+        //let mut listing: &mut Listing = &mut self.current_list;
+        let dialogue_manager = &self.dialogue_manager.clone();
+        let current_values = "0 - Exit\n".to_owned() + &self.pretty_printing_files();
+        let selections_items: Vec<&str> = current_values.split('\n').collect();
+        let selections_gotten = dialogue_manager.get_selection("Select one item", selections_items);
+        if selections_gotten == 0 {
+            println!("No list selected, returning");
+            return;
         }
-        else
-        {
-            self.change_list_inner(&selections_lists);
-        }
+        self.load_listing(selections_gotten - 1);
     }
 
     pub fn change_list_inner(&mut self, selections_lists: &[&str]) {
@@ -154,28 +257,14 @@ impl ListManager {
     {
         let mut listing: &mut Listing = &mut self.current_list;
         let dialogue_manager = &self.dialogue_manager;
-        let selections = &[
-            "List Items",
-            "Select ID",
-            "Close"
-        ];
-        let mut exit: bool = false;
-        while !exit
-        {
-            let selection = dialogue_manager.get_selection_default(selections.to_vec());
-            match selection {
-                0 => println!("{}", listing.pretty_printing_all()),
-                1 => println!("{}", match dialogue_manager.get_input_i32("Get index") {
-                    x if x < 0 => "Bad index",
-                    x if (x > 0 && x <= listing.num_items() as i32) => {
-                        listing.remove(x as u8);
-                        "Modified"
-                    },
-                    _ => "Bad choice"
-                }),
-                2 => exit = true,
-                _ => println!("Bad choice, try again")
-            }
+        let current_values = "0 - Exit\n".to_owned() + &listing.pretty_printing_all_minimum();
+        let selections_items: Vec<&str> = current_values.split('\n').collect();
+        let selections_gotten = dialogue_manager.get_multiple_input_string("Select at least one item".to_owned(), &selections_items);
+        if selections_gotten == [0] {
+            return
+        }
+        for selection in selections_gotten {
+            listing.remove(selection as u8);
         }
     }
 
@@ -183,14 +272,19 @@ impl ListManager {
     {
         let list = &self.list_files;
         let mut internal_string = String::new();
-        let mut i=0;
+        let mut i=1;
         if list.is_empty()
         {
             return String::from("");
         }
-        for value in list
+        for (index, value) in list.iter().enumerate()
         {
-            internal_string.push_str(&format!("{}. - {}", i, value));
+            let mut ending = "\n";
+            if index == list.len() - 1
+            {
+                ending = "";
+            }
+            internal_string.push_str(&format!("{}. - {}{}", i, value, ending));
             i += 1;
         }
         return internal_string;

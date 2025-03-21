@@ -10,12 +10,8 @@ use log4rs;
 // TODO: Use multiple selection on modifications of items
 fn main() {
     const SELECTIONS: &'static [&str] = &[
-        "List TODO items",
-        "List completed items",
-        "Add item",
-        "Modify Item",
-        "Remove Item",
-        "Change list",
+        "Manage items",
+        "Manage lists",
         "Close"
     ];
 
@@ -26,13 +22,9 @@ fn main() {
     while !exit {
         let selection = dialogue_manager.get_selection_default(SELECTIONS.to_vec());
         match selection {
-            0 => println!("{}", list_manager.pretty_printing_todo()),
-            1 => println!("{}", list_manager.pretty_printing_completed()),
-            2 => list_manager.add_item(),
-            3 => list_manager.modify_item(),
-            4 => list_manager.remove_item(),
-            5 => list_manager.change_list(),
-            6 => exit = true,
+            0 => list_manager.manage_items(),
+            1 => list_manager.manage_lists(),
+            2 => exit = true,
             _ => println!("Unknown choice")
         }
     }

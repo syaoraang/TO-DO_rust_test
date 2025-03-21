@@ -210,9 +210,14 @@ impl Listing {
             return String::from("none");
         }
         let mut internal_string: String = String::new();
-        for item in list
+        for (index, item) in list.iter().enumerate()
         {
-            internal_string.push_str(&format!("{} -- [{}] {}\n", &item.id, &item.status, &item.text));
+            let mut ending = "\n";
+            if index == list.len() - 1
+            {
+                ending = "";
+            }
+            internal_string.push_str(&format!("{} -- [{}] {}{}", &item.id, &item.status, &item.text, ending));
         }
         return internal_string;
     }
