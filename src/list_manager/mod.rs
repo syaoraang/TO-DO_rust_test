@@ -19,12 +19,6 @@ pub struct ListManager
     dialogue_manager: Dialogue_manager
 }
 
-impl ListManager {
-    pub fn get_current_list(&self) -> & Listing {
-        &self.current_list
-    }
-}
-
 impl Default for ListManager
 {
     fn default() -> Self {
@@ -52,6 +46,10 @@ impl ListManager {
             default_list_manager.populate_listing();
         }
         default_list_manager
+    }
+
+    pub fn get_current_list(&self) -> & Listing {
+        &self.current_list
     }
     fn load_listing(&mut self, index: usize)
     {
@@ -87,8 +85,7 @@ impl ListManager {
     pub fn manage_items(&mut self)
     {
         let selections_lists: &'static [&str] = &[
-            "List TODO items",
-            "List completed items",
+            "Show items",
             "Add item",
             "Modify Item",
             "Remove Item",
@@ -98,11 +95,28 @@ impl ListManager {
         while !exit {
             let mut selection = self.dialogue_manager.get_selection("Select an option", selections_lists.to_vec());
             match selection {
+                0 => self.show_items(),
+                1 => self.add_item(),
+                2 => self.modify_item(),
+                3 => self.remove_item(),
+                _ => exit = true
+            }
+        }
+    }
+
+    pub fn show_items(&mut self)
+    {
+        let selections_lists: &'static [&str] = &[
+            "List TODO items",
+            "List completed items",
+            "Close"
+        ];
+        let mut exit = false;
+        while !exit {
+            let mut selection = self.dialogue_manager.get_selection("Select an option", selections_lists.to_vec());
+            match selection {
                 0 => println!("{}", self.pretty_printing_todo()),
                 1 => println!("{}", self.pretty_printing_completed()),
-                2 => self.add_item(),
-                3 => self.modify_item(),
-                4 => self.remove_item(),
                 _ => exit = true
             }
         }
@@ -230,6 +244,13 @@ impl ListManager {
 
     pub fn modify_item(&mut self)
     {
+        let selections_lists: &'static [&str] = &[
+            "Change status",
+            "Add tag",
+            "Remove tag",
+            "Modify group",
+            "Close"
+        ];
         let mut listing: &mut Listing = &mut self.current_list;
         let dialogue_manager = &self.dialogue_manager;
         let current_values = "0 - Exit\n".to_owned() + &listing.pretty_printing_all_minimum();
@@ -239,6 +260,64 @@ impl ListManager {
             return
         }
         for selection in selections_gotten {
+            let item_id = selection as u8;
+            let mut exit = false;
+            while !exit {
+                let mut selection = self.dialogue_manager.get_selection("Select an option", selections_lists.to_vec());
+                match selection {
+                    0 => {
+                        if listing.is_item_done(item_id)
+                        {
+                            match listing.unmark_as_done(item_id)
+                            {
+                                true => { println!("Unmarked as TODO"); }
+                                _ => { println!("Can't unmark as TODO"); }
+                            }
+                        }
+                        else
+                        {
+                            match listing.mark_as_done(item_id)
+                            {
+                                true => { println!("Marked as TODO"); }
+                                _ => { println!("Can't Mark as TODO"); }
+                            }
+                        }
+                    },
+                    1 => {
+                        let tag = dialogue_manager.get_input_string_allow_empty("Type new tag");
+                        if (tag.is_empty())
+                        {
+                            println!("Returning; no tag");
+                        }
+                        listing.add_tag_item(item_id, tag);
+                    },
+                    2 => {
+                        let current_values = "0 - Exit\n".to_owned() + &listing.pretty_printing_tags(item_id);
+                        let selections_items: Vec<&str> = current_values.split('\n').collect();
+                        let selections_gotten = dialogue_manager.get_multiple_input_string("Select at least one item".to_owned(), &selections_items);
+                        if selections_gotten == [0] {
+                            return
+                        }
+                        for selection in selections_gotten {
+                            let tag_str = selections_items[selection];
+                            let final_choice = dialogue_manager.get_selection(&format!("Do you really want to delete tag: {}", &tag_str), vec!("No", "Yes"));
+                            match final_choice {
+                                0 => {println!("Skipping"); },
+                                _ => {listing.remove_tag_item(item_id, tag_str.to_string());}
+                            }
+                        }
+                    },
+                    3 => {
+                        let group_str = dialogue_manager.get_input_string_allow_empty("Type new group");
+                        if (group_str.is_empty())
+                        {
+                            println!("Returning; no group");
+                        }
+                        listing.change_group(item_id, group_str);
+                    }
+                    _ => exit = true
+                }
+            }
             let input_text = dialogue_manager.get_input_string_allow_empty(
                 &format!("Item: {}\n Enter new text or blank to cancel", &selections_items[selection])
             );
