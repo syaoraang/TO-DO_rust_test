@@ -101,6 +101,11 @@ impl ListItem {
 
     fn print_tags(&self) -> String
     {
+        self.tags.iter().map(| tag | format!("{},", tag )).collect()
+    }
+
+    fn print_tags_enumerated(&self) -> String
+    {
         self.tags.iter().enumerate().map(|(index, tag)| format!("{}. {}", index+1, tag)).collect()
     }
 
@@ -296,7 +301,7 @@ impl Listing {
             {
                 ending = "";
             }
-            internal_string.push_str(&format!("{} -- [{}] {}{}", &item.id, &item.status, &item.text, ending));
+            internal_string.push_str(&format!("{} - [{}] {} [#{} @{}]{}", &item.id, &item.status, &item.text, &item.group, &item.print_tags(), ending));
         }
         return internal_string;
     }
@@ -318,7 +323,7 @@ impl Listing {
     {
         match self.find_item(id)
         {
-            Some(item) => item.print_tags(),
+            Some(item) => item.print_tags_enumerated(),
             None => String::from(""),
         }
     }

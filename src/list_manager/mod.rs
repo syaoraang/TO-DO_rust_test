@@ -318,17 +318,6 @@ impl ListManager {
                     _ => exit = true
                 }
             }
-            let input_text = dialogue_manager.get_input_string_allow_empty(
-                &format!("Item: {}\n Enter new text or blank to cancel", &selections_items[selection])
-            );
-            if input_text.is_empty() {
-                continue
-            }
-            match listing.update_text(selection as u8, input_text)
-            {
-                true => println!("Item modified"),
-                false => println!("Can't access the item"),
-            }
         }
     }
 
